@@ -9,6 +9,7 @@ def home():
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
+    print(data)
     message = data.get('message', '').lower()
 
     # Simple logic
