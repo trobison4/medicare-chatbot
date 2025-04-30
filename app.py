@@ -1,26 +1,43 @@
 from flask import Flask, request, jsonify
+import datetime
+import json
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "🧠 Chatbot is running!"
+    return "Veteran Booking API is live!"
 
-@app.route('/chat', methods=['POST'])
-def chat():
-    data = request.get_json()
-    print(data)
-    message = data.get('message', '').lower()
+@app.route('/book', methods=['POST'])
+def book():
+    try:
+        data = request.get_json()
 
-    # Simple logic
-    if 'medicare' in message:
-        reply = "Thanks for asking about Medicare. Would you like to schedule a free call?"
-    elif 'help' in message:
-        reply = "Sure, I can help! Ask me about Medicare, supplements, or VA benefits."
-    else:
-        reply = "I'm not sure what you mean — can you rephrase that?"
+        # Extract info from GPT
+        first_name = data.get('first_name', 'Unknown')
+        phone = data.get('phone', 'Not provided')
+        email = data.get('email', 'Not provided')
+        preferred_time = data.get('time', 'Not specified')
+        coverage = data.get('coverage', 'Unknown')
+        has_medicare = data.get('has_medicare', 'Unknown')
 
-    return jsonify({'reply': reply})
+        # Log the booking info
+        print("==== New Booking Request ====")
+        print(f"Name: {first_name}")
+        print(f"Phone: {phone}")
+        print(f"Email: {email}")
+        print(f"Preferred Time: {preferred_time}")
+        print(f"Coverage: {coverage}")
+        print(f"Has Medicare A & B: {has_medicare}")
+        print("================================")
+
+        # (Optional) Save to file or trigger booking logic here
+
+        return jsonify({"status": "success", "message": f"Booking info received for {first_name}."}), 200
+
+    except Exception as e:
+        print("Booking error:", e)
+        return jsonify({"status": "error", "message": "Failed to process booking."}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
