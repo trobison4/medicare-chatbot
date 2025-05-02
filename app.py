@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import requests  # <-- This is the external HTTP library used to send the POST
 import datetime
 import json
 from check_availability import get_available_slots  # ✅ Make sure this exists and works
@@ -14,7 +15,6 @@ def book():
     try:
         data = request.get_json()
 
-        # Extract info from GPT
         first_name = data.get('first_name', 'Unknown')
         phone = data.get('phone', 'Not provided')
         email = data.get('email', 'Not provided')
@@ -32,9 +32,24 @@ def book():
         print(f"Has Medicare A & B: {has_medicare}")
         print("================================")
 
+        # 🔁 Submit to Go High Level
+        ghl_url = "https://link.mcgirlinsurance.com/widget/booking/WEiPPsXPuf4RiQQFb3tm"
+        payload = {
+            "full_name": first_name,
+            "phone": phone,
+            "email": email
+        }
+
+        ghl_response = requests.post(ghl_url, data=payload)
+
+        if ghl_response.status_code == 200:
+            print("✅ Sent to GHL successfully")
+        else:
+            print(f"❌ GHL post failed: {ghl_response.status_code} {ghl_response.text}")
+
         return jsonify({
             "status": "success",
-            "message": f"Booking info received for {first_name}."
+            "message": f"Booking info received and submitted to GHL for {first_name}."
         }), 200
 
     except Exception as e:
@@ -44,6 +59,7 @@ def book():
             "message": "Failed to process booking.",
             "error": str(e)
         }), 500
+
 
 @app.route('/timeslots', methods=['GET'])
 def timeslots():
