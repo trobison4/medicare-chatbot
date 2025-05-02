@@ -4,7 +4,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # Paths and credentials
-SERVICE_ACCOUNT_FILE = 'gcal-key.json'
+SERVICE_ACCOUNT_FILE = 'C:/Users/info/my_keys/new-gcal-key.json'
 BOT_CALENDAR_ID = 'c_81bfd5e6eed02d27fade2338561f7676e9afe81ba165403958ba3d3e383ab9b6@group.calendar.google.com'
 ICAL_FEED_ID = 'theo@mcgirlinsurance.com'
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
