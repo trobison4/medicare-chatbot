@@ -33,19 +33,23 @@ def book():
         print("================================")
 
         # 🔁 Submit to Go High Level
-        ghl_url = "https://link.mcgirlinsurance.com/widget/booking/WEiPPsXPuf4RiQQFb3tm"
+               ghl_url = "https://link.mcgirlinsurance.com/widget/booking/WEiPPsXPuf4RiQQFb3tm"
         payload = {
             "full_name": first_name,
             "phone": phone,
             "email": email
         }
 
-        ghl_response = requests.post(ghl_url, data=payload)
+        print("🔍 Sending this to GHL:", payload)
 
-        if ghl_response.status_code == 200:
-            print("✅ Sent to GHL successfully")
-        else:
-            print(f"❌ GHL post failed: {ghl_response.status_code} {ghl_response.text}")
+        try:
+            ghl_response = requests.post(ghl_url, data=payload)
+
+            print("📬 GHL status code:", ghl_response.status_code)
+            print("📬 GHL response text:", ghl_response.text)
+        except Exception as e:
+            print("🚨 Exception while posting to GHL:", str(e))
+
 
         return jsonify({
             "status": "success",
