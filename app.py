@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import datetime
 import json
+from check_availability import get_available_slots  # ✅ Make sure this exists and works
 
 app = Flask(__name__)
 
@@ -19,7 +20,7 @@ def book():
         email = data.get('email', 'Not provided')
         preferred_time = data.get('time', 'Not specified')
         coverage = data.get('coverage', 'Unknown')
-        has_medicare = data.get('has_medicare', 'Unknown')
+        has_medicare = data.get('has_medicare_ab', 'Unknown')
 
         # Log the booking info
         print("==== New Booking Request ====")
@@ -31,13 +32,35 @@ def book():
         print(f"Has Medicare A & B: {has_medicare}")
         print("================================")
 
-        # (Optional) Save to file or trigger booking logic here
-
-        return jsonify({"status": "success", "message": f"Booking info received for {first_name}."}), 200
+        return jsonify({
+            "status": "success",
+            "message": f"Booking info received for {first_name}."
+        }), 200
 
     except Exception as e:
         print("Booking error:", e)
-        return jsonify({"status": "error", "message": "Failed to process booking."}), 500
+        return jsonify({
+            "status": "error",
+            "message": "Failed to process booking.",
+            "error": str(e)
+        }), 500
+
+@app.route('/timeslots', methods=['GET'])
+def timeslots():
+    try:
+        raw_slots = get_available_slots(limit=10)
+
+        # Format to [{"time": "..."}] for GPT compatibility
+        slots = [{"time": slot} for slot in raw_slots]
+
+        return jsonify(slots)
+    except Exception as e:
+        print("Timeslot error:", e)
+        return jsonify({
+            "status": "error",
+            "message": "Failed to retrieve timeslots.",
+            "error": str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
