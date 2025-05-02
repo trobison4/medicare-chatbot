@@ -33,7 +33,7 @@ def book():
         print("================================")
 
         # 🔁 Submit to Go High Level
-               ghl_url = "https://link.mcgirlinsurance.com/widget/booking/WEiPPsXPuf4RiQQFb3tm"
+        ghl_url = "https://link.mcgirlinsurance.com/widget/booking/WEiPPsXPuf4RiQQFb3tm"
         payload = {
             "full_name": first_name,
             "phone": phone,
