@@ -1,10 +1,14 @@
 import datetime
 import zoneinfo
+import os
+import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-# Paths and credentials
-SERVICE_ACCOUNT_FILE = 'C:/Users/info/my_keys/new-gcal-key.json'
+# Load key from Render environment variable
+key_info = json.loads(os.environ['GOOGLE_KEY_JSON'])
+
+# Set calendar access
 BOT_CALENDAR_ID = 'c_81bfd5e6eed02d27fade2338561f7676e9afe81ba165403958ba3d3e383ab9b6@group.calendar.google.com'
 ICAL_FEED_ID = 'theo@mcgirlinsurance.com'
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
@@ -14,8 +18,8 @@ MOUNTAIN = zoneinfo.ZoneInfo("America/Denver")
 UTC = datetime.timezone.utc
 
 # Authenticate
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES
+credentials = service_account.Credentials.from_service_account_info(
+    key_info, scopes=SCOPES
 )
 service = build('calendar', 'v3', credentials=credentials)
 
@@ -71,7 +75,7 @@ def label_date(dt):
     else:
         return dt.astimezone(MOUNTAIN).strftime("%A")
 
-# ✅ This is what your app.py imports
+# Main export for app.py
 def get_available_slots(limit=10):
     available = []
     for i in range(14):
