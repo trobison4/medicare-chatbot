@@ -23,24 +23,16 @@ credentials = service_account.Credentials.from_service_account_info(
 )
 service = build('calendar', 'v3', credentials=credentials)
 
-# Time range
-now = datetime.datetime.now(UTC)
-end = now + datetime.timedelta(days=14)
-
 # Fetch busy blocks
-def get_busy(calendar_id):
+def get_busy(calendar_id, start, end):
     result = service.freebusy().query(
         body={
-            "timeMin": now.isoformat(),
+            "timeMin": start.isoformat(),
             "timeMax": end.isoformat(),
             "items": [{"id": calendar_id}]
         }
     ).execute()
     return result['calendars'][calendar_id]['busy']
-
-bot_busy = get_busy(BOT_CALENDAR_ID)
-main_busy = get_busy(ICAL_FEED_ID)
-all_busy = bot_busy + main_busy
 
 # Generate 30-minute blocks from 9am–5pm MT
 def generate_slots(day):
@@ -55,7 +47,7 @@ def generate_slots(day):
     return slots
 
 # Check if time slot is free
-def is_free(start, end):
+def is_free(start, end, all_busy):
     for block in all_busy:
         busy_start = datetime.datetime.fromisoformat(block['start'].replace('Z', '+00:00'))
         busy_end = datetime.datetime.fromisoformat(block['end'].replace('Z', '+00:00'))
@@ -77,6 +69,13 @@ def label_date(dt):
 
 # Main export for app.py
 def get_available_slots(limit=10):
+    now = datetime.datetime.now(UTC)
+    end = now + datetime.timedelta(days=14)
+
+    bot_busy = get_busy(BOT_CALENDAR_ID, now, end)
+    main_busy = get_busy(ICAL_FEED_ID, now, end)
+    all_busy = bot_busy + main_busy
+
     available = []
     for i in range(14):
         day = now + datetime.timedelta(days=i)
@@ -86,7 +85,7 @@ def get_available_slots(limit=10):
         for start, end in generate_slots(day):
             if start < now:
                 continue
-            if is_free(start, end):
+            if is_free(start, end, all_busy):
                 label = label_date(start)
                 time = start.astimezone(MOUNTAIN).strftime("%b %d at %I:%M %p")
                 available.append(f"{label}, {time}")

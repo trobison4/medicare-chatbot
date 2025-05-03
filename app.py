@@ -1,84 +1,68 @@
-from flask import Flask, request, jsonify
-import requests  # <-- This is the external HTTP library used to send the POST
-import datetime
-import json
-from check_availability import get_available_slots  # ✅ Make sure this exists and works
+from flask import Flask, request
+import requests
+import openai
+import os
 
 app = Flask(__name__)
 
+# Set your OpenAI API key from environment variable
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 @app.route('/')
 def home():
-    return "Veteran Booking API is live!"
+    return "SMS Bot is running!"
 
-@app.route('/book', methods=['POST'])
-def book():
+@app.route('/message', methods=['POST'])
+def handle_sms():
     try:
-        data = request.get_json()
+        # Get incoming SMS details from Twilio
+        from_number = request.form.get("From")
+        body = request.form.get("Body")
 
-        first_name = data.get('first_name', 'Unknown')
-        phone = data.get('phone', 'Not provided')
-        email = data.get('email', 'Not provided')
-        preferred_time = data.get('time', 'Not specified')
-        coverage = data.get('coverage', 'Unknown')
-        has_medicare = data.get('has_medicare_ab', 'Unknown')
+        print(f"📩 Incoming SMS from {from_number}: {body}")
 
-        # Log the booking info
-        print("==== New Booking Request ====")
-        print(f"Name: {first_name}")
-        print(f"Phone: {phone}")
-        print(f"Email: {email}")
-        print(f"Preferred Time: {preferred_time}")
-        print(f"Coverage: {coverage}")
-        print(f"Has Medicare A & B: {has_medicare}")
-        print("================================")
+        # Build GPT prompt
+        prompt = f"""
+You are a friendly, helpful SMS assistant for McGirl Insurance.
+Keep replies short. Ask one question at a time.
+Only talk about Medicare, VA, TRICARE, or CHAMPVA.
+Start by qualifying the user.
 
-        # 🔁 Submit to Go High Level
-        ghl_url = "https://link.mcgirlinsurance.com/widget/booking/WEiPPsXPuf4RiQQFb3tm"
+User: {body}
+AI:"""
+
+        # GPT chat completion call
+        gpt_response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a warm, smart Medicare SMS assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        reply = gpt_response["choices"][0]["message"]["content"].strip()
+        print(f"🤖 GPT Reply: {reply}")
+
+        # Send reply back using Twilio
+        twilio_sid = os.getenv("TWILIO_SID")
+        twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
+        twilio_number = os.getenv("TWILIO_PHONE")
+        twilio_url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
+
         payload = {
-            "full_name": first_name,
-            "phone": phone,
-            "email": email
+            "To": from_number,
+            "From": twilio_number,
+            "Body": reply
         }
 
-        print("🔍 Sending this to GHL:", payload)
+        response = requests.post(twilio_url, data=payload, auth=(twilio_sid, twilio_token))
+        print("📤 Twilio status:", response.status_code)
 
-        try:
-            ghl_response = requests.post(ghl_url, data=payload)
-
-            print("📬 GHL status code:", ghl_response.status_code)
-            print("📬 GHL response text:", ghl_response.text)
-        except Exception as e:
-            print("🚨 Exception while posting to GHL:", str(e))
-
-
-        return jsonify({
-            "status": "success",
-            "message": f"Booking info received and submitted to GHL for {first_name}."
-        }), 200
+        return "", 200
 
     except Exception as e:
-        print("Booking error:", e)
-        return jsonify({
-            "status": "error",
-            "message": "Failed to process booking.",
-            "error": str(e)
-        }), 500
+        print("❌ Error in /message:", e)
+        return "", 500
 
-
-@app.route('/timeslots', methods=['GET'])
-def timeslots():
-    try:
-        raw_slots = get_available_slots(limit=10)
-
-        # Format to [{"time": "..."}] for GPT compatibility
-        slots = [{"time": slot} for slot in raw_slots]
-
-        return jsonify(slots)
-    except Exception as e:
-        print("Timeslot error:", e)
-        return jsonify({
-            "status": "error",
-            "message": "Failed to retrieve timeslots.",
-            "error": str(e)
-        }), 500
-
+if __name__ == '__main__':
+    app.run(debug=True)
