@@ -1,12 +1,10 @@
 from flask import Flask, request
 import requests
-import openai
 import os
+from openai import OpenAI  # ✅ NEW IMPORT
 
 app = Flask(__name__)
-
-# Set your OpenAI API key from environment variable
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI()  # ✅ NEW CLIENT
 
 @app.route('/')
 def home():
@@ -21,26 +19,25 @@ def handle_sms():
 
         print(f"📩 Incoming SMS from {from_number}: {body}")
 
-        # Build GPT prompt
-        prompt = f"""
+        # System prompt
+        system_prompt = """
 You are a friendly, helpful SMS assistant for McGirl Insurance.
-Keep replies short. Ask one question at a time.
-Only talk about Medicare, VA, TRICARE, or CHAMPVA.
-Start by qualifying the user.
+You only answer questions about Medicare, VA, TRICARE, or CHAMPVA.
+Never explain in detail — keep replies short and casual like a friend.
+Ask one question at a time. Always lead toward offering a quick 10-minute call.
+If a user asks about costs, coverage, or eligibility, reply:
+'I’ll make sure your advisor covers that during the call. Would mornings or afternoons work better?'
+"""
 
-User: {body}
-AI:"""
-
-        # GPT chat completion call
-        gpt_response = openai.ChatCompletion.create(
+        # ✅ GPT chat call using new API
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a warm, smart Medicare SMS assistant."},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": body}
             ]
         )
-
-        reply = gpt_response["choices"][0]["message"]["content"].strip()
+        reply = response.choices[0].message.content.strip()
         print(f"🤖 GPT Reply: {reply}")
 
         # Send reply back using Twilio
