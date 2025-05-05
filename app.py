@@ -2,27 +2,9 @@ from flask import Flask, request, jsonify
 import requests
 import os
 from openai import OpenAI
-import datetime
-import zoneinfo
-import json
-from dateutil import parser
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 
 app = Flask(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# === Google Calendar Setup ===
-key_info = json.loads(os.environ['GOOGLE_KEY_JSON'])
-SCOPES = ['https://www.googleapis.com/auth/calendar']
-BOT_CALENDAR_ID = 'c_81bfd5e6eed02d27fade2338561f7676e9afe81ba165403958ba3d3e383ab9b6@group.calendar.google.com'
-MOUNTAIN = zoneinfo.ZoneInfo("America/Denver")
-UTC = datetime.timezone.utc
-
-credentials = service_account.Credentials.from_service_account_info(
-    key_info, scopes=SCOPES
-)
-calendar_service = build('calendar', 'v3', credentials=credentials)
 
 @app.route('/')
 def home():
@@ -37,15 +19,13 @@ def handle_sms():
         print(f"📩 Incoming SMS from {from_number}: {body}")
 
         system_prompt = """
-You are a warm, helpful SMS assistant representing McGirl Insurance.
-You only answer questions about Medicare, VA, TRICARE, or CHAMPVA.
-Never explain in detail — keep replies short and casual like a friend.
-Ask one question at a time.
+You are a friendly SMS assistant for McGirl Insurance.
+Only answer questions about Medicare, VA, TRICARE, or CHAMPVA.
+Keep replies casual and short like a friend. Ask one question at a time.
+If a user is ready, say:
+'We’ve got Monday at 10 AM or Tuesday at 2 PM — would either work for you?'
 
-If a user is open to a call, suggest:
-'We’ve got openings like Monday at 10 AM or Tuesday at 2 PM — would either work for you?'
-
-If they pick a time, call the /book endpoint with:
+If they pick a time, call /book with:
 {
   "first_name": "Theo",
   "phone": "720-695-7888",
@@ -54,9 +34,7 @@ If they pick a time, call the /book endpoint with:
   "coverage": "TRICARE",
   "has_medicare_ab": "Yes"
 }
-
-Then say:
-'Perfect. Watch for a confirmation by text or email!'
+Then reply: 'Perfect. Watch for a confirmation by text or email!'
 """
 
         response = client.chat.completions.create(
@@ -81,9 +59,7 @@ Then say:
             "Body": reply
         }
 
-        response = requests.post(twilio_url, data=payload, auth=(twilio_sid, twilio_token))
-        print("📤 Twilio status:", response.status_code)
-
+        requests.post(twilio_url, data=payload, auth=(twilio_sid, twilio_token))
         return "", 200
 
     except Exception as e:
@@ -94,65 +70,27 @@ Then say:
 def book():
     try:
         data = request.get_json()
-        first_name = data['first_name']
-        phone = data['phone']
-        email = data['email']
-        time = data['time']
-        coverage = data['coverage']
-        has_medicare_ab = data['has_medicare_ab']
+        first_name = data.get('first_name', 'Unknown')
+        phone = data.get('phone', 'Not provided')
+        email = data.get('email', 'Not provided')
 
-        start_local = parser.parse(time).replace(tzinfo=MOUNTAIN)
-        end_local = start_local + datetime.timedelta(minutes=30)
-        start_utc = start_local.astimezone(UTC).isoformat()
-        end_utc = end_local.astimezone(UTC).isoformat()
-
-        event = {
-            'summary': f'Booking: {first_name}',
-            'description': f'Coverage: {coverage}\nMedicare A/B: {has_medicare_ab}\nPhone: {phone}\nEmail: {email}',
-            'start': {'dateTime': start_utc, 'timeZone': 'UTC'},
-            'end': {'dateTime': end_utc, 'timeZone': 'UTC'},
-            'attendees': [{'email': email}]
+        # 📤 Submit to GHL calendar booking link
+        ghl_url = "https://link.mcgirlinsurance.com/widget/booking/WEiPPsXPuf4RiQQFb3tm"
+        payload = {
+            "full_name": first_name,
+            "phone": phone,
+            "email": email
         }
 
-        calendar_service.events().insert(calendarId=BOT_CALENDAR_ID, body=event).execute()
-        print(f"✅ Booked calendar slot for {first_name} at {time}")
-        return jsonify({"status": "success", "message": f"Booked {time} for {first_name}"}), 200
+        print("📨 Submitting booking to GHL:", payload)
+        response = requests.post(ghl_url, data=payload)
+        print("📬 GHL Response:", response.status_code, response.text)
+
+        return jsonify({"status": "success", "message": f"Submitted to GHL for {first_name}"}), 200
 
     except Exception as e:
-        print("❌ Booking error:", e)
+        print("❌ Error in /book:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-@app.route('/book', methods=['POST'])
-def book():
-    try:
-        data = request.get_json()
-        first_name = data['first_name']
-        phone = data['phone']
-        email = data['email']
-        time = data['time']
-        coverage = data['coverage']
-        has_medicare_ab = data['has_medicare_ab']
-
-        start_local = parser.parse(time).replace(tzinfo=MOUNTAIN)
-        end_local = start_local + datetime.timedelta(minutes=30)
-        start_utc = start_local.astimezone(UTC).isoformat()
-        end_utc = end_local.astimezone(UTC).isoformat()
-
-        event = {
-            'summary': f'Booking: {first_name}',
-            'description': f'Coverage: {coverage}\nMedicare A/B: {has_medicare_ab}\nPhone: {phone}\nEmail: {email}',
-            'start': {'dateTime': start_utc, 'timeZone': 'UTC'},
-            'end': {'dateTime': end_utc, 'timeZone': 'UTC'},
-            'attendees': [{'email': email}]
-        }
-
-        calendar_service.events().insert(calendarId=BOT_CALENDAR_ID, body=event).execute()
-        print(f"✅ Booked calendar slot for {first_name} at {time}")
-        return jsonify({"status": "success", "message": f"Booked {time} for {first_name}"}), 200
-
-    except Exception as e:
-        print("❌ Booking error:", e)
-        return jsonify({"status": "error", "message": str(e)}), 500
