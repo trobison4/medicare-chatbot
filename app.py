@@ -124,3 +124,35 @@ def book():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+@app.route('/book', methods=['POST'])
+def book():
+    try:
+        data = request.get_json()
+        first_name = data['first_name']
+        phone = data['phone']
+        email = data['email']
+        time = data['time']
+        coverage = data['coverage']
+        has_medicare_ab = data['has_medicare_ab']
+
+        start_local = parser.parse(time).replace(tzinfo=MOUNTAIN)
+        end_local = start_local + datetime.timedelta(minutes=30)
+        start_utc = start_local.astimezone(UTC).isoformat()
+        end_utc = end_local.astimezone(UTC).isoformat()
+
+        event = {
+            'summary': f'Booking: {first_name}',
+            'description': f'Coverage: {coverage}\nMedicare A/B: {has_medicare_ab}\nPhone: {phone}\nEmail: {email}',
+            'start': {'dateTime': start_utc, 'timeZone': 'UTC'},
+            'end': {'dateTime': end_utc, 'timeZone': 'UTC'},
+            'attendees': [{'email': email}]
+        }
+
+        calendar_service.events().insert(calendarId=BOT_CALENDAR_ID, body=event).execute()
+        print(f"✅ Booked calendar slot for {first_name} at {time}")
+        return jsonify({"status": "success", "message": f"Booked {time} for {first_name}"}), 200
+
+    except Exception as e:
+        print("❌ Booking error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
