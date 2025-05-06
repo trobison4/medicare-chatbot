@@ -3,12 +3,12 @@ import requests
 import os
 import json
 from openai import OpenAI
-from check_availability import get_available_slots  # Import real-time slot generator
+from check_availability import get_available_slots  # Your existing slot checker
 
 app = Flask(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# GPT System Prompt
+# === SYSTEM PROMPT ===
 system_prompt = """
 You are a friendly, knowledgeable Medicare assistant representing **McGirl Insurance**, helping U.S. veterans, their families, and seniors understand how VA, TRICARE, or CHAMPVA coverage works with Medicare. Your tone is respectful and casual — like texting a friend.
 
@@ -56,7 +56,7 @@ Say:
 > "No problem — I’ll check back in a couple weeks. Reach out anytime if you need help!"
 """
 
-# Tool definitions
+# === TOOLS ===
 tools = [
     {
         "type": "function",
@@ -189,3 +189,20 @@ def handle_sms():
     except Exception as e:
         print("❌ Error in /message:", e)
         return "", 500
+
+@app.route('/book', methods=['POST'])
+def book_appointment():
+    try:
+        data = request.get_json()
+        print("📅 Booking data received:", data)
+
+        # Simulate success (you’ll wire to Google Calendar next)
+        return jsonify({
+            "status": "success",
+            "message": f"Appointment booked for {data['time']}"
+        }), 200
+
+    except Exception as e:
+        print("❌ Error in /book:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
