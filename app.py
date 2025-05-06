@@ -2,11 +2,23 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import json
+from datetime import timedelta
+from dateutil import parser
 from openai import OpenAI
-from check_availability import get_available_slots  # Your availability module
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from check_availability import get_available_slots
 
 app = Flask(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# === Google Calendar Setup ===
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+GOOGLE_KEY = json.loads(os.environ["GOOGLE_KEY_JSON"])
+BOT_CALENDAR_ID = 'c_81bfd5e6eed02d27fade2338561f7676e9afe81ba165403958ba3d3e383ab9b6@group.calendar.google.com'
+
+credentials = service_account.Credentials.from_service_account_info(GOOGLE_KEY, scopes=SCOPES)
+calendar_service = build("calendar", "v3", credentials=credentials)
 
 # === GPT SYSTEM PROMPT ===
 system_prompt = """
@@ -37,23 +49,6 @@ Use this format:
 
 Then confirm:
 > "Perfect. You’re booked for [time]. Watch for a confirmation by text or email!"
-
-✅ IF THEY MENTION CHAMPVA OR TRICARE
-
-Say:
-> "You’ll need both Medicare Part A and B to keep your coverage. One of our advisors can explain how that works. Would morning or afternoon be better for a quick call?"
-
-✅ AFTER BOOKING, ASK QUALIFYING QUESTIONS
-
-Once booked, ask one at a time:
-- "Do you have Medicare Part A and B?"
-- "Do you currently use VA healthcare, TRICARE, or CHAMPVA?"
-- "Do you have any additional insurance like a supplement or Advantage plan?"
-
-✅ IF THEY SAY “NOT NOW”
-
-Say:
-> "No problem — I’ll check back in a couple weeks. Reach out anytime if you need help!"
 """
 
 # === TOOL DEFINITIONS ===
@@ -63,11 +58,7 @@ tools = [
         "function": {
             "name": "getTimeslots",
             "description": "Fetch real-time appointment availability",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            "parameters": {"type": "object", "properties": {}, "required": []}
         }
     },
     {
@@ -85,10 +76,7 @@ tools = [
                     "coverage": {"type": "string"},
                     "has_medicare_ab": {"type": "string"}
                 },
-                "required": [
-                    "first_name", "phone", "email",
-                    "time", "coverage", "has_medicare_ab"
-                ]
+                "required": ["first_name", "phone", "email", "time", "coverage", "has_medicare_ab"]
             }
         }
     }
@@ -194,18 +182,28 @@ def handle_sms():
 def book_appointment():
     try:
         if not request.is_json:
-            return jsonify({
-                "status": "error",
-                "message": "Request must be JSON"
-            }), 400
+            return jsonify({"status": "error", "message": "Request must be JSON"}), 400
 
         data = request.get_json()
         print("📅 Booking data received:", data)
 
-        # Simulated success response — replace with real calendar write next
+        # Parse "May 8 at 10:00 AM" into datetime
+        start = parser.parse(data["time"])
+        end = start + timedelta(minutes=30)
+
+        event = {
+            "summary": f"Medicare Call: {data['first_name']} ({data['coverage']})",
+            "description": f"Has Medicare A/B: {data['has_medicare_ab']}\nPhone: {data['phone']}\nEmail: {data['email']}",
+            "start": {"dateTime": start.isoformat(), "timeZone": "America/Denver"},
+            "end": {"dateTime": end.isoformat(), "timeZone": "America/Denver"},
+            "attendees": [{"email": data["email"]}]
+        }
+
+        calendar_service.events().insert(calendarId=BOT_CALENDAR_ID, body=event).execute()
+
         return jsonify({
             "status": "success",
-            "message": f"Appointment booked for {data['time']}"
+            "message": f"✅ Appointment booked for {data['time']}"
         }), 200
 
     except Exception as e:
