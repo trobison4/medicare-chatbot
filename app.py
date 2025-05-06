@@ -134,7 +134,7 @@ def handle_sms():
 
         choice = response.choices[0]
 
-        if choic.finish_reason == "tool_calls":
+        if choice.finish_reason == "tool_calls":
             tool_call = choice.message.tool_calls[0]
             function_name = tool_call.function.name
             function_args = json.loads(tool_call.function.arguments)
