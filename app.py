@@ -3,7 +3,7 @@ import requests
 import os
 import json
 from openai import OpenAI
-from check_availability import get_available_slots  # ✅ Import availability logic
+from check_availability import get_available_slots  # Import real-time slot generator
 
 app = Flask(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -56,7 +56,7 @@ Say:
 > "No problem — I’ll check back in a couple weeks. Reach out anytime if you need help!"
 """
 
-# GPT Function Tools
+# Tool definitions
 tools = [
     {
         "type": "function",
@@ -135,4 +135,57 @@ def handle_sms():
             print(f"🛠 Tool Call: {function_name} with {function_args}")
 
             if function_name == "getTimeslots":
-                slots = requests.get("https://medicare-chatbot-gz9v.onrender.com/timeslots").json()
+                slots = get_available_slots()
+                top_slots = slots[:2]
+
+                follow_up = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": body},
+                        {"role": "assistant", "tool_calls": [tool_call]},
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "name": "getTimeslots",
+                            "content": json.dumps({"times": top_slots})
+                        }
+                    ]
+                )
+                reply = follow_up.choices[0].message.content.strip()
+                print(f"🤖 GPT Reply (after timeslots): {reply}")
+
+            elif function_name == "bookAppointment":
+                booking = requests.post(
+                    "https://medicare-chatbot-gz9v.onrender.com/book",
+                    json=function_args
+                )
+                if booking.status_code == 200:
+                    reply = f"Perfect. You're booked for {function_args['time']} — confirmation coming soon!"
+                else:
+                    reply = "Oops — something went wrong trying to book you. Can we try again?"
+                print(f"🤖 GPT Reply (after booking): {reply}")
+
+        else:
+            reply = choice.message.content.strip()
+            print(f"🤖 GPT Reply (no tool): {reply}")
+
+        # Send reply via Twilio
+        twilio_sid = os.getenv("TWILIO_SID")
+        twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
+        twilio_number = os.getenv("TWILIO_PHONE")
+        twilio_url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
+
+        payload = {
+            "To": from_number,
+            "From": twilio_number,
+            "Body": reply
+        }
+
+        twilio_response = requests.post(twilio_url, data=payload, auth=(twilio_sid, twilio_token))
+        print(f"📤 Twilio status: {twilio_response.status_code}")
+        return "", 200
+
+    except Exception as e:
+        print("❌ Error in /message:", e)
+        return "", 500
