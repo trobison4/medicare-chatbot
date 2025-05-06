@@ -4,6 +4,8 @@ import os
 from openai import OpenAI
 
 app = Flask(__name__)
+
+# 🔐 Load OpenAI API key from environment
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @app.route('/')
@@ -37,6 +39,7 @@ If they pick a time, call /book with:
 Then reply: 'Perfect. Watch for a confirmation by text or email!'
 """
 
+        # 🔮 Ask GPT for a reply
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -47,7 +50,7 @@ Then reply: 'Perfect. Watch for a confirmation by text or email!'
         reply = response.choices[0].message.content.strip()
         print(f"🤖 GPT Reply: {reply}")
 
-        # Send reply via Twilio
+        # 📤 Reply back via Twilio
         twilio_sid = os.getenv("TWILIO_SID")
         twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
         twilio_number = os.getenv("TWILIO_PHONE")
@@ -67,29 +70,56 @@ Then reply: 'Perfect. Watch for a confirmation by text or email!'
         return "", 500
 
 @app.route('/book', methods=['POST'])
-def book():
+def book_to_ghl():
     try:
         data = request.get_json()
-        first_name = data.get('first_name', 'Unknown')
-        phone = data.get('phone', 'Not provided')
-        email = data.get('email', 'Not provided')
 
-        # 📤 Submit to GHL calendar booking link
-        ghl_url = "https://link.mcgirlinsurance.com/widget/booking/WEiPPsXPuf4RiQQFb3tm"
+        first_name = data.get("first_name", "Unknown")
+        phone = data.get("phone")
+        email = data.get("email")
+        time = data.get("time")
+        coverage = data.get("coverage", "Not provided")
+        has_medicare = data.get("has_medicare_ab", "Unknown")
+
+        print("📅 Booking request received:")
+        print(data)
+
         payload = {
-            "full_name": first_name,
-            "phone": phone,
-            "email": email
+            "calendarId": "WEiPPsXPuf4RiQQFb3tm",
+            "contact": {
+                "firstName": first_name,
+                "email": email,
+                "phone": phone
+            },
+            "customFields": {
+                "coverage_type": coverage,
+                "has_medicare_ab": has_medicare
+            },
+            "startTime": time,
+            "timezone": "America/Denver"
         }
 
-        print("📨 Submitting booking to GHL:", payload)
-        response = requests.post(ghl_url, data=payload)
-        print("📬 GHL Response:", response.status_code, response.text)
+        headers = {
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6Ilo3RXJ3NzVESDJaVEpDUFlMRllMIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ2NDg4OTIzNjA5LCJzdWIiOiJ4cTNLQ1dIZlJDWnJORkw2ZzFFYyJ9.wt_8fHtOrPmvxHB47HcwEhxpDtpanopPAQu2I8eC0es",
+            "Content-Type": "application/json"
+        }
 
-        return jsonify({"status": "success", "message": f"Submitted to GHL for {first_name}"}), 200
+        ghl_url = "https://rest.gohighlevel.com/v1/appointments/"
+        response = requests.post(ghl_url, json=payload, headers=headers)
+
+        print("📤 GHL response:", response.status_code, response.text)
+
+        if response.status_code in [200, 201]:
+            return jsonify({"status": "success", "message": f"Booked to GHL calendar for {first_name}"}), 200
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "Failed to book appointment",
+                "ghl_response": response.text
+            }), 400
 
     except Exception as e:
-        print("❌ Error in /book:", e)
+        print("❌ Booking Error:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
