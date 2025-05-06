@@ -142,7 +142,7 @@ def handle_sms():
             print(f"🛠 Tool Call: {function_name} with {function_args}")
 
             if function_name == "getTimeslots":
-                slots = requests.get("http://medicare-chatbot-gz9v.onrender.com/timeslots").json()
+                slots = requests.get("https://medicare-chatbot-gz9v.onrender.com/timeslots").json()
                 top_slots = [s["time"] for s in slots[:2]]
 
                 follow_up = client.chat.completions.create(
@@ -160,6 +160,7 @@ def handle_sms():
                     ]
                 )
                 reply = follow_up.choices[0].message.content.strip()
+                print(f"🤖 GPT Reply (after timeslots): {reply}")
 
             elif function_name == "bookAppointment":
                 booking = requests.post(
@@ -170,9 +171,11 @@ def handle_sms():
                     reply = f"Perfect. You're booked for {function_args['time']} — confirmation coming soon!"
                 else:
                     reply = "Oops — something went wrong trying to book you. Can we try again?"
+                print(f"🤖 GPT Reply (after booking): {reply}")
 
         else:
             reply = choice.message.content.strip()
+            print(f"🤖 GPT Reply (no tool): {reply}")
 
         # Send reply via Twilio
         twilio_sid = os.getenv("TWILIO_SID")
@@ -186,7 +189,8 @@ def handle_sms():
             "Body": reply
         }
 
-        requests.post(twilio_url, data=payload, auth=(twilio_sid, twilio_token))
+        twilio_response = requests.post(twilio_url, data=payload, auth=(twilio_sid, twilio_token))
+        print(f"📤 Twilio status: {twilio_response.status_code}")
         return "", 200
 
     except Exception as e:
