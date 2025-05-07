@@ -161,20 +161,23 @@ def handle_sms():
             reply = choice.message.content.strip()
             print(f"🤖 GPT Reply (no tool): {reply}")
 
-        # Send reply via Twilio
-        twilio_sid = os.getenv("TWILIO_SID")
-        twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
-        twilio_number = os.getenv("TWILIO_PHONE")
-        twilio_url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
+        telnyx_token = os.getenv("TELNYX_API_KEY")
+        telnyx_number = os.getenv("TELNYX_PHONE")
 
-        payload = {
-            "To": from_number,
-            "From": twilio_number,
-            "Body": reply
+        headers = {
+        "Authorization": f"Bearer {telnyx_token}",
+        "Content-Type": "application/json"
         }
 
-        twilio_response = requests.post(twilio_url, data=payload, auth=(twilio_sid, twilio_token))
-        print(f"📤 Twilio status: {twilio_response.status_code}")
+        payload = {
+        "from": telnyx_number,
+        "to": from_number,
+        "text": reply
+        }
+
+        telnyx_response = requests.post("https://api.telnyx.com/v2/messages", json=payload, headers=headers)
+        print(f"📤 Telnyx status: {telnyx_response.status_code}")
+
         return "", 200
 
     except Exception as e:
