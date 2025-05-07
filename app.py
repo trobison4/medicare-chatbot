@@ -15,7 +15,8 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # === Google Calendar Setup ===
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 GOOGLE_KEY = json.loads(os.environ["GOOGLE_KEY_JSON"])
-BOT_CALENDAR_ID = 'c_81bfd5e6eed02d27fade2338561f7676e9afe81ba165403958ba3d3e383ab9b6@group.calendar.google.com'
+BOT_CALENDAR_ID = 'theo@mcgirlinsurance.com'
+
 
 credentials = service_account.Credentials.from_service_account_info(GOOGLE_KEY, scopes=SCOPES)
 calendar_service = build("calendar", "v3", credentials=credentials)
@@ -187,6 +188,9 @@ def book_appointment():
         data = request.get_json()
         print("📅 Booking data received:", data)
 
+        print(f"📆 Booking to calendar: {BOT_CALENDAR_ID}")
+
+
         # Parse "May 8 at 10:00 AM" into datetime
         start = parser.parse(data["time"])
         end = start + timedelta(minutes=30)
@@ -209,3 +213,4 @@ def book_appointment():
     except Exception as e:
         print("❌ Error in /book:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
