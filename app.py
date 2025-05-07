@@ -99,8 +99,10 @@ def timeslots():
 @app.route('/message', methods=['POST'])
 def handle_sms():
     try:
-        from_number = request.form.get("From")
-        body = request.form.get("Body")
+        data = request.get_json()
+        from_number = data["data"]["payload"]["from"]["phone_number"]
+        body = data["data"]["payload"]["text"]
+        
 
         print(f"📩 Incoming SMS from {from_number}: {body}")
 
