@@ -199,8 +199,7 @@ def book_appointment():
             "summary": f"Medicare Call: {data['first_name']} ({data['coverage']})",
             "description": f"Has Medicare A/B: {data['has_medicare_ab']}\nPhone: {data['phone']}\nEmail: {data['email']}",
             "start": {"dateTime": start.isoformat(), "timeZone": "America/Denver"},
-            "end": {"dateTime": end.isoformat(), "timeZone": "America/Denver"},
-            "attendees": [{"email": data["email"]}]
+            "end": {"dateTime": end.isoformat(), "timeZone": "America/Denver"}]
         }
 
         calendar_service.events().insert(calendarId=BOT_CALENDAR_ID, body=event).execute()
