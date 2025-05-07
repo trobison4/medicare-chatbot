@@ -163,6 +163,9 @@ def handle_sms():
             print(f"🤖 GPT Reply (no tool): {reply}")
 
         telnyx_token = os.getenv("TELNYX_API_KEY")
+        messaging_profile_id = os.getenv("TELNYX_MESSAGING_PROFILE_ID")
+
+        print("📎 Loaded Messaging Profile ID:", messaging_profile_id)
         telnyx_number = os.getenv("TELNYX_PHONE")
 
         headers = {
@@ -171,7 +174,7 @@ def handle_sms():
         }
 
         payload = {
-        "from": telnyx_number,
+        "messaging_profile_id": messaging_profile_id,
         "to": from_number,
         "text": reply
         }
