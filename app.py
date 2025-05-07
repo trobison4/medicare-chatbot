@@ -151,6 +151,7 @@ def handle_sms():
                     "https://medicare-chatbot-gz9v.onrender.com/book",
                     json=function_args
                 )
+                
                 if booking.status_code == 200:
                     reply = f"Perfect. You're booked for {function_args['time']} — confirmation coming soon!"
                 else:
@@ -177,6 +178,7 @@ def handle_sms():
 
         telnyx_response = requests.post("https://api.telnyx.com/v2/messages", json=payload, headers=headers)
         print(f"📤 Telnyx status: {telnyx_response.status_code}")
+        print(f"📤 Telnyx response body: {telnyx_response.text}")
 
         return "", 200
 
