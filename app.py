@@ -103,6 +103,13 @@ def handle_sms():
         from_number = data["data"]["payload"]["from"]["phone_number"]
         body = data["data"]["payload"]["text"]
         
+        # Prevent bot from responding to itself
+        telnyx_number = os.getenv("TELNYX_PHONE")
+        if from_number == telnyx_number:
+           print("🔁 Ignoring message from own number to prevent loop.")
+           return "", 200
+
+        
 
         print(f"📩 Incoming SMS from {from_number}: {body}")
 
